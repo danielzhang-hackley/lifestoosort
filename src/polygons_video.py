@@ -13,7 +13,7 @@ then it is a bolt, otherwise it is a screw.
 print('\033c')
 
 import cv2
-import numpy as np
+from polygons_static_4 import screw_bolt_other
 
 
 cap = cv2.VideoCapture(0)
@@ -22,113 +22,21 @@ if not cap.isOpened():
     exit()
 
 while True:
-
-    # PROCESS IMAGE AND CREATE CONTOURS
     ret, img = cap.read()
     # if frame is read correctly ret is True
     if not ret:
         print("Can't receive frame (stream end?). Exiting ...")
         break
 
-    grayscale = cv2.cvtColor(cv2.blur(img, (10, 10)), cv2.COLOR_BGR2GRAY)
-    ret, thresh = cv2.threshold(grayscale, 230, 255, cv2.THRESH_BINARY_INV)  # TODO: ADJUST THRESHOLDS
-    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    try:
-        cnt = contours[0]
-        max_area = cv2.contourArea(cnt)
-        for cont in contours:
-            if cv2.contourArea(cont) > max_area:
-                cnt = cont
-                max_area = cv2.contourArea(cont)
-
-        perimeter = cv2.arcLength(cnt, True)
-        epsilon = 0.005*cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, epsilon, True)
-
-
-        # CREATE CONVEX HULL
-        convex_hull_points = cv2.convexHull(approx)
-        convex_hull = cv2.convexHull(approx, returnPoints=False)
-        convexity_defects = cv2.convexityDefects(approx, convex_hull)  # what if there are no convexity defects
-
-
-        # FIND CONVEXITY DEFECTS
-        # find the indices of convexity defect where the distance between hull and approximation is greatest
-        p1_idx = [0, 0]  # the index in convexity_defects of the max, max
-        p2_idx = [0, 0]
-        try:
-            for i, defect in enumerate(convexity_defects):
-                defect = defect[0]
-                if defect[3] > p1_idx[1]:
-                    p2_idx = p1_idx
-                    p1_idx = [i, defect[3]]
-                elif defect[3] > p2_idx[1]:
-                    p2_idx = [i, defect[3]]
-        except:
-            print("\rnot a screw or bolt")
-            continue
-
-        # find the indices of the second closest pair of points on the convex hull
-        closest = [(0, -1), (0, -1), float('inf')]   # (1st index in approx which is element of convexity_defects, upper or lower),
-                                                    # (2nd index, upper lower), min
-        second_closest = [(0, -1), (0, -1), float('inf')]
-        for i, first_point_idx in enumerate(convexity_defects[p1_idx[0]][0][0:2]):
-            for j, second_point_idx in enumerate(convexity_defects[p2_idx[0]][0][0:2]):
-                first_point = approx[first_point_idx][0]
-                second_point = approx[second_point_idx][0]
-
-                difference = second_point - first_point
-                distance = np.linalg.norm(difference)
-
-                if distance < closest[-1]:
-                    second_closest = closest
-                    closest = [(first_point_idx, i), (second_point_idx, j), distance]
-                elif distance < second_closest[-1]:
-                    second_closest = [(first_point_idx, i), (second_point_idx, j), distance]
-
-
-        # FIND NOTCHES
-        # if lower bound, we can move forward one, if upper bound, we can move bacward one
-        dct = {0: 1, 1: -1}
-        notch1_idx = second_closest[0][0] + dct[second_closest[0][1]]
-        notch2_idx = second_closest[1][0] + dct[second_closest[1][1]]
-        notch1 = approx[notch1_idx][0]
-        notch2 = approx[notch2_idx][0]
-
-
-        # FIND BOUNDING BOX
-        approx = np.vstack([approx[: min(notch1_idx + 1, notch2_idx + 1)], approx[max(notch1_idx, notch2_idx):]])
-
-        rect = cv2.minAreaRect(approx)
-        box = cv2.boxPoints(rect)
-        box = np.int0(box)
-
-
-        # FIND AREAS AND COMPARE
-        box_area = cv2.contourArea(box)
-        head_area = cv2.contourArea(approx)
-        ratio = head_area / box_area
-        if ratio >= .75:
-            print("\rhex bolt: ", ratio)
-        else:
-            print("\rother screw/bolt: ", ratio)
-
-
-        # DRAW EVERYTHING
-        cv2.drawContours(img, [approx], -1, (0, 0, 255), 3)
-        cv2.drawContours(img, [convex_hull_points], -1, (255, 0, 0), 2)
-        img = cv2.circle(img, notch1, radius=5, color=(0, 255, 0), thickness=-1)
-        img = cv2.circle(img, notch2, radius=5, color=(0, 255, 0), thickness=-1)
-        cv2.drawContours(img,[box],0,(255, 0, 255),2)
-
-    except:
-        pass
+    fastener_type, ratio, sketches, thresh = screw_bolt_other(img)
+    print("\r", fastener_type, ratio, end='')
 
     # HANDLE WINDOWS
+    cv2.imshow('sketches', sketches)
+    cv2.imshow('thresholds', thresh)
+
     if cv2.waitKey(1) == ord('q'):
         break
-
 
 cap.release()
 cv2.destroyAllWindows()
