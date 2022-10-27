@@ -28,7 +28,7 @@ while True:
         print("Can't receive frame (stream end?). Exiting ...")
         break
 
-    fastener_type, ratio, sketches, thresh = screw_bolt_other(img)
+    fastener_type, ratio, sketches, thresh, head = screw_bolt_other(img)
     print("\r", fastener_type, ratio, end='')
 
     # HANDLE WINDOWS

@@ -7,7 +7,7 @@ import numpy as np
 
 
 def screw_bolt_other(image):
-    output = [None for _ in range(4)]  # type, ratio, drawings, thresh
+    output = [None for _ in range(5)]  # type, ratio, drawings, thresh, head
 
     # PROCESS IMAGE AND CREATE CONTOURS
     img = image.copy()  # keep the original image clean
@@ -16,9 +16,10 @@ def screw_bolt_other(image):
     _, thresh = cv2.threshold(grayscale, 240, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-
     output[2], output[3] = img, thresh
 
+
+    # CREATE CONTOURS
     if len(contours) > 0:
         cnt = contours[0]
         max_area = cv2.contourArea(cnt)
@@ -81,10 +82,10 @@ def screw_bolt_other(image):
 
 
             # FIND NOTCHES
-            # if lower bound, we can move forward one, if upper bound, we can move bacward one
-            dct = {0: 1, 1: -1}
-            notch1_idx = second_closest[0][0] + dct[second_closest[0][1]]
-            notch2_idx = second_closest[1][0] + dct[second_closest[1][1]]
+            # if lower bound, we can move forward one, if upper bound, we can move backwards one
+            # dct = {0: 1, 1: -1}
+            notch1_idx = second_closest[0][0] # + dct[second_closest[0][1]]
+            notch2_idx = second_closest[1][0] # + dct[second_closest[1][1]]
             notch1 = approx[notch1_idx][0]
             notch2 = approx[notch2_idx][0]
 
@@ -101,7 +102,6 @@ def screw_bolt_other(image):
             img = cv2.circle(img, notch1, radius=5, color=(0, 255, 0), thickness=-1)
             img = cv2.circle(img, notch2, radius=5, color=(0, 255, 0), thickness=-1)
             cv2.drawContours(img,[box],0,(255, 0, 255),2)
-            output[2] = img
 
 
             # FIND AREAS AND COMPARE
@@ -110,13 +110,13 @@ def screw_bolt_other(image):
             try:
                 ratio = head_area / box_area
             except ZeroDivisionError:
-                output[0] = "other"
+                output[0] = "screw"
                 return tuple(output)
 
             output[1] = ratio
-            if ratio >= .8:
+            if ratio >= .9:
                 output[0] = "bolt"
-                return tuple(output)
+                # return tuple(output)
 
 
             # ROTATE IMAGE ABOUT CENTER OF BOUNDING BOX
@@ -139,13 +139,12 @@ def screw_bolt_other(image):
             # cv2.imshow("head", img_rot)
 
 
-
             # CANNY EDGE DETECTION ON ROTATED HEAD
             t_lower = 600  # Lower Threshold
-            t_upper = 800  # Upper threshold
+            t_upper = 700  # Upper threshold
             aperture_size = 5  # Aperture size; TODO: adjust these three values
-            edges = cv2.Canny(cv2.blur(img_rot, (7, 7)), t_lower, t_upper, apertureSize=aperture_size)
-            # cv2.imshow("edges", edges)
+            edges = cv2.Canny(cv2.blur(img_rot, (1,1)), t_lower, t_upper, apertureSize=aperture_size)
+            output[4] = edges
 
 
             # HOUGH LINE APPROXIMATION
@@ -155,27 +154,27 @@ def screw_bolt_other(image):
                     edges,
                     rho=1,
                     theta=np.pi/180,
-                    threshold=20,
+                    threshold=5,
                     minLineLength=.33*img_rot.shape[:2][0],
-                    maxLineGap=0.125*img_rot.shape[:2][0])
+                    maxLineGap=0.2*img_rot.shape[:2][0])
 
                 for line in lines:
                     for x1, y1, x2, y2 in line:
                         vector = np.array([x2 - x1, y2 - y1])
                         # dot product of the unit vectors
                         dpu = np.dot(vector, np.array([1, 0])) / (np.linalg.norm(vector) * np.linalg.norm(np.array([1, 0])))
-                        cv2.line(img_rot, (x1,y1), (x2,y2), (255,0,0), 3)
+                        cv2.line(edges, (x1,y1), (x2,y2), (255,0,0), 3)
                         if dpu > -0.1 and dpu < 0.1:
                             num_vertical += 1
             except:
-                output[0] = "screw"
+                output[0], output[1] = "screw", 0
                 return tuple(output)
 
             # cv2.imshow("head", img_rot)
 
             # RETURN VALUE BASED ON NUMBER OF VERTICAL LINES
             output[1] = num_vertical
-            if num_vertical >= 2:
+            if num_vertical >= 1:
                 output[0] = "bolt"
                 return(tuple(output))
             else:
@@ -186,8 +185,8 @@ def screw_bolt_other(image):
 if __name__ == "__main__":
     print('\033c')
 
-    img = cv2.imread(r'./images/machine_screw.jpg')
-    fastener_type, ratio, sketches, thresholds = screw_bolt_other(img)
+    img = cv2.imread(r'./images/pan_head_screw_2.jpg')
+    fastener_type, ratio, sketches, thresholds, head = screw_bolt_other(img)
 
     print(fastener_type, ratio)
 
@@ -195,5 +194,8 @@ if __name__ == "__main__":
     cv2.imshow("original", img)
     cv2.imshow('sketches', sketches)
     cv2.imshow('thresholds', thresholds)
+    if head is not None:
+        cv2.imshow('head', head)
+
     cv2.waitKey(0)
     cv2.destroyAllWindows()
