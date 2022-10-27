@@ -1,0 +1,2 @@
+## FWIS 188 / ENGI 120 Computer Vision System for Life's Too Sort
+```polygons_static_4.py``` contains the function to classify screws and bolts, and ```polygons_video.py``` runs this function while taking images from a video feed.
