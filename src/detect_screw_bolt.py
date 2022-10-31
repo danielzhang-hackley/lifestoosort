@@ -1,7 +1,3 @@
-"""
-help
-"""
-
 import cv2
 import numpy as np
 
@@ -13,7 +9,7 @@ def screw_bolt_other(image):
     img = image.copy()  # keep the original image clean
     grayscale = cv2.cvtColor(cv2.blur(img, (5, 5)), cv2.COLOR_BGR2GRAY)
 
-    _, thresh = cv2.threshold(grayscale, 240, 255, cv2.THRESH_BINARY_INV)
+    _, thresh = cv2.threshold(grayscale, 128, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     output[2], output[3] = img, thresh
@@ -113,10 +109,10 @@ def screw_bolt_other(image):
                 output[0] = "screw"
                 return tuple(output)
 
-            output[1] = ratio
+            output[1] = ("ratio", ratio)
             if ratio >= .9:
                 output[0] = "bolt"
-                # return tuple(output)
+                # return tuple(output)  # COMMENT OR UNCOMMENT?
 
 
             # ROTATE IMAGE ABOUT CENTER OF BOUNDING BOX
@@ -173,7 +169,7 @@ def screw_bolt_other(image):
             # cv2.imshow("head", img_rot)
 
             # RETURN VALUE BASED ON NUMBER OF VERTICAL LINES
-            output[1] = num_vertical
+            output[1] = ("vertical lines", num_vertical)
             if num_vertical >= 1:
                 output[0] = "bolt"
                 return(tuple(output))
@@ -185,7 +181,7 @@ def screw_bolt_other(image):
 if __name__ == "__main__":
     print('\033c')
 
-    img = cv2.imread(r'./images/pan_head_screw_2.jpg')
+    img = cv2.imread(r'./images/hex_bolt.jpg')
     fastener_type, ratio, sketches, thresholds, head = screw_bolt_other(img)
 
     print(fastener_type, ratio)
