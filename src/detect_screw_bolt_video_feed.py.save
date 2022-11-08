@@ -1,8 +1,8 @@
 import cv2
 from detect_screw_bolt import screw_bolt_other
-from move_output_bin import move_output_bin
 
-cap = cv2.VideoCapture('/dev/video0')
+
+cap = cv2.VideoCapture(-1)
 if not cap.isOpened():
     print("Cannot open camera")
     exit()
@@ -15,11 +15,8 @@ while True:
         break
 
     try:
-        fastener_type, ratio, sketches, thresh, head = screw_bolt_other(img)
-        # move_output_bin(fastener_type)
+        fastqener_type, ratio, sketches, thresh, head = screw_bolt_other(img)
         print("\r", fastener_type, ratio, end='')
-        
-        
 
         # HANDLE WINDOWS
         cv2.imshow('sketches', sketches)
