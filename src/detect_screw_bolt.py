@@ -9,7 +9,7 @@ def screw_bolt_other(image):
     img = image.copy()  # keep the original image clean
     grayscale = cv2.cvtColor(cv2.blur(img, (5, 5)), cv2.COLOR_BGR2GRAY)
 
-    _, thresh = cv2.threshold(grayscale, 110, 255, cv2.THRESH_BINARY_INV)
+    _, thresh = cv2.threshold(grayscale, 220, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     output[2], output[3] = img, thresh
@@ -24,6 +24,8 @@ def screw_bolt_other(image):
                 cnt = cont
                 max_area = cv2.contourArea(cont)
 
+        whole_box = np.int0(cv2.boxPoints(cv2.minAreaRect(cnt)))
+        
         epsilon = 0.005*cv2.arcLength(cnt, True)
         approx = cv2.approxPolyDP(cnt, epsilon, True)
 
@@ -86,39 +88,45 @@ def screw_bolt_other(image):
             notch2 = approx[notch2_idx][0]
 
 
-            # FIND BOUNDING BOX
+            # FIND BOUNDING BOX FOR HEAD
             approx = np.vstack([approx[: min(notch1_idx + 1, notch2_idx + 1)],
                                 approx[max(notch1_idx, notch2_idx):]])
             rect = cv2.minAreaRect(approx)
-            box = cv2.boxPoints(rect)
-            box = np.int0(box)
+            head_box = cv2.boxPoints(rect)
+            head_box = np.int0(head_box)
 
 
             # DRAW EVERYTHING ELSE
             img = cv2.circle(img, notch1, radius=5, color=(0, 255, 0), thickness=-1)
             img = cv2.circle(img, notch2, radius=5, color=(0, 255, 0), thickness=-1)
-            cv2.drawContours(img,[box],0,(255, 0, 255),2)
-
+            cv2.drawContours(img,[head_box], 0, (255, 0, 255), 2)
+            cv2.drawContours(img,[whole_box], 0, (255, 255, 0), 2)
 
             # FIND AREAS AND COMPARE
-            box_area = cv2.contourArea(box)
+            head_box_area = cv2.contourArea(head_box)
             head_area = cv2.contourArea(approx)
+            whole_box_area = cv2.contourArea(whole_box)
+
             try:
-                ratio = head_area / box_area
+                head_box_ratio = head_area / head_box_area
+                box_whole_ratio = head_box_area / whole_box_area
             except ZeroDivisionError:
                 output[0] = "screw"
                 return tuple(output)
 
-            output[1] = ("ratio", ratio)
-            if ratio >= .9:
+            if head_box_ratio >= .9:
+                output[1] = ("head_box_ratio", head_box_ratio)
                 output[0] = "bolt"
                 # return tuple(output)  # COMMENT OR UNCOMMENT?
-
+            if box_whole_ratio >= .6:
+                output[1] = ("whole box ratio", box_whole_ratio)
+                output[0] = "other"
+                return tuple(output)
 
             # ROTATE IMAGE ABOUT CENTER OF BOUNDING BOX
             width = int(rect[1][0])
             height = int(rect[1][1])
-            src_pts = box.astype("float32")
+            src_pts = head_box.astype("float32")
             # coordinate of the points in box points after the rectangle has been straightened
             dst_pts = np.array([[0,       height-1],
                                 [0,       0       ],
@@ -159,7 +167,7 @@ def screw_bolt_other(image):
                         vector = np.array([x2 - x1, y2 - y1])
                         # dot product of the unit vectors
                         dpu = np.dot(vector, np.array([1, 0])) / (np.linalg.norm(vector) * np.linalg.norm(np.array([1, 0])))
-                        cv2.line(edges, (x1,y1), (x2,y2), (255,0,0), 3)
+                        # cv2.line(edges, (x1,y1), (x2,y2), (255,0,0), 3)
                         if dpu > -0.1 and dpu < 0.1:
                             num_vertical += 1
             except:
@@ -170,7 +178,7 @@ def screw_bolt_other(image):
 
             # RETURN VALUE BASED ON NUMBER OF VERTICAL LINES
             output[1] = ("vertical lines", num_vertical)
-            if num_vertical >= 1:
+            if num_vertical >= 2:
                 output[0] = "bolt"
                 return(tuple(output))
             else:
