@@ -1,6 +1,23 @@
 import cv2
 import numpy as np
 
+def rotate_image(rotateImage, angle):
+    # Taking image height and width
+    imgHeight, imgWidth = rotateImage.shape[0], rotateImage.shape[1]
+
+    # Computing the centre x,y coordinates
+    # of an image
+    centreY, centreX = imgHeight//2, imgWidth//2
+
+    # Computing 2D rotation Matrix to rotate an image
+    rotationMatrix = cv2.getRotationMatrix2D((centreY, centreX), angle, 1.0)
+
+    # Now, we will perform actual image rotation
+    rotatingimage = cv2.warpAffine(
+        rotateImage, rotationMatrix, (imgWidth, imgHeight))
+
+    return rotatingimage
+
 
 def screw_bolt_other(image):
     output = [None for _ in range(5)]  # type, ratio, drawings, thresh, head
@@ -9,7 +26,7 @@ def screw_bolt_other(image):
     img = image.copy()  # keep the original image clean
     grayscale = cv2.cvtColor(cv2.blur(img, (5, 5)), cv2.COLOR_BGR2GRAY)
 
-    _, thresh = cv2.threshold(grayscale, 150, 255, cv2.THRESH_BINARY_INV)
+    _, thresh = cv2.threshold(grayscale, 230, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     output[2], output[3] = img, thresh
@@ -189,7 +206,7 @@ def screw_bolt_other(image):
 if __name__ == "__main__":
     print('\033c')
 
-    img = cv2.imread(r'./images/hex_bolt.jpg')
+    img = rotate_image(cv2.imread(r'./images/hex_bolt.jpg'), -45)
     fastener_type, ratio, sketches, thresholds, head = screw_bolt_other(img)
 
     print(fastener_type, ratio)
