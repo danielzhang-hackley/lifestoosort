@@ -9,7 +9,7 @@ def screw_bolt_other(image):
     img = image.copy()  # keep the original image clean
     grayscale = cv2.cvtColor(cv2.blur(img, (5, 5)), cv2.COLOR_BGR2GRAY)
 
-    _, thresh = cv2.threshold(grayscale, 128, 255, cv2.THRESH_BINARY_INV)
+    _, thresh = cv2.threshold(grayscale, 150, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     output[2], output[3] = img, thresh

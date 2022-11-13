@@ -2,7 +2,7 @@ import cv2
 from detect_screw_bolt import screw_bolt_other
 
 
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     print("Cannot open camera")
     exit()
