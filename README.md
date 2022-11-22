@@ -1,2 +1,2 @@
 ## FWIS 188 / ENGI 120 Computer Vision System for Life's Too Sort
-```detect_screw_bolt.py``` contains the function to classify screws and bolts, and ```detect_screw_bolt_video_feed.py``` runs this function while taking images from a video feed.
+```utils.py``` contains the functions to classify screws and bolts as well as move the motors, and ```main.py``` runs these function while taking images from a video feed.
