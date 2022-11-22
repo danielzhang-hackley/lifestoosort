@@ -2,14 +2,14 @@ import cv2
 import numpy as np
 
 
-def screw_bolt_other(image):
+def screw_bolt_other(image, light_threshold=128):
     output = [None for _ in range(5)]  # type, ratio, drawings, thresh, head
 
     # PROCESS IMAGE AND CREATE CONTOURS
     img = image.copy()  # keep the original image clean
     grayscale = cv2.cvtColor(cv2.blur(img, (5, 5)), cv2.COLOR_BGR2GRAY)
 
-    _, thresh = cv2.threshold(grayscale, 220, 255, cv2.THRESH_BINARY_INV)
+    _, thresh = cv2.threshold(grayscale, light_threshold, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     output[2], output[3] = img, thresh
@@ -84,18 +84,20 @@ def screw_bolt_other(image):
             # dct = {0: 1, 1: -1}
             notch1_idx = second_closest[0][0] # + dct[second_closest[0][1]]
             notch2_idx = second_closest[1][0] # + dct[second_closest[1][1]]
-            notch1 = approx[notch1_idx][0]
-            notch2 = approx[notch2_idx][0]
-
+            notch1_seq = min(notch1_idx, notch2_idx)  # index of the notch that comes first in approx
+            notch2_seq = max(notch1_idx, notch2_idx)
+            
+            notch1 = approx[notch1_seq][0]
+            notch2 = approx[notch2_seq][0]
 
             # FIND BOUNDING BOX FOR HEAD
-            approx = np.vstack([approx[: min(notch1_idx + 1, notch2_idx + 1)],
-                                approx[max(notch1_idx, notch2_idx):]])
+            approx2 = approx[notch1_seq: notch2_seq + 1]
+            approx = np.vstack([approx[: notch1_seq + 1],
+                                approx[notch2_seq: ]])
             rect = cv2.minAreaRect(approx)
             head_box = cv2.boxPoints(rect)
             head_box = np.int0(head_box)
-
-
+            
             # DRAW EVERYTHING ELSE
             img = cv2.circle(img, notch1, radius=5, color=(0, 255, 0), thickness=-1)
             img = cv2.circle(img, notch2, radius=5, color=(0, 255, 0), thickness=-1)
@@ -189,8 +191,8 @@ def screw_bolt_other(image):
 if __name__ == "__main__":
     print('\033c')
 
-    img = cv2.imread(r'./images/hex_bolt.jpg')
-    fastener_type, ratio, sketches, thresholds, head = screw_bolt_other(img)
+    img = cv2.imread(r'./images/hex_bolt_rot1')
+    fastener_type, ratio, sketches, thresholds, head = screw_bolt_other(img, light_threshold=230)
 
     print(fastener_type, ratio)
 
