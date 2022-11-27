@@ -14,10 +14,5 @@ print('\033c')
 
 """
 
-x = np.array([1, 2, 3])
-y = np.array([[1],
-              [2],
-              [3]])
-
-print(utils.add_affine(x, axis=1))
-print(utils.add_affine(y, axis=1))
+x = np.array([[[1, 0]], [[2, 2]]])
+print(utils.least_squares_perp_offset(x))

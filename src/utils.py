@@ -16,14 +16,15 @@ def move_output_bin(kit, type):
 # short side no lines, long side perpendicular to concave = nut
 # short side with lines, long slide parallel to concave = bolt
 
-def screw_bolt_other(image, blur=(5,5), light_threshold=148, canny_t_lower=300, canny_t_upper=400):
+def screw_bolt_other(image, blur=(5,5), light_threshold=148, thresholding=cv2.THRESH_BINARY,
+                     canny_t_lower=300, canny_t_upper=400):
     output = [None for _ in range(5)]  # type, reasoning, drawings, thresh, head
 
     # PROCESS IMAGE AND CREATE CONTOURS
     img = image.copy()  # keep the original image clean
     grayscale = cv2.cvtColor(cv2.blur(img, blur), cv2.COLOR_BGR2GRAY)
 
-    _, thresh = cv2.threshold(grayscale, light_threshold, 255, cv2.THRESH_BINARY)
+    _, thresh = cv2.threshold(grayscale, light_threshold, 255, thresholding)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     output[2], output[3] = img, thresh
@@ -40,25 +41,11 @@ def screw_bolt_other(image, blur=(5,5), light_threshold=148, canny_t_lower=300, 
             cnt = cont
             max_area = cv2.contourArea(cont)
 
-    # vertices of fastener bounding box
-    whole_box = cv2.minAreaRect(cnt)
-    whole_box_points = np.int0(cv2.boxPoints(cv2.minAreaRect(cnt)))
 
-    moment = cv2.moments(cnt)
-    cx = int(moment['m10']/moment['m00'])
-    cy = int(moment['m01']/moment['m00'])
-
-    cv2.imshow("straightened", straighten_image(img, cnt, (cx, cy)))
-    cv2.drawContours(img, [whole_box_points], -1, (255, 0, 0), 2)
-    cv2.imshow("image", img)
-
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
+    img, cnt = straighten_image(img, thresh, cnt)
 
     epsilon = 0.005*cv2.arcLength(cnt, True)
     approx = cv2.approxPolyDP(cnt, epsilon, True)
-
 
     # CREATE CONVEX HULL
     convex_hull_points = cv2.convexHull(approx)
@@ -117,6 +104,7 @@ def screw_bolt_other(image, blur=(5,5), light_threshold=148, canny_t_lower=300, 
     notch2 = approx[notch2_idx][0]
 
     # FIND BOUNDING BOX FOR HEAD
+    '''
     # split the whole box at the points of concavity first
     """
     p1, p2, p3, p4 = whole_box[0], whole_box[1], whole_box[2], whole_box[3]
@@ -235,18 +223,37 @@ def screw_bolt_other(image, blur=(5,5), light_threshold=148, canny_t_lower=300, 
         output[0] = "bolt"
         return output
 
+    '''
 
-    approx_head = np.vstack([approx[: min(notch1_idx, notch2_idx) + 1],
+    concave_line_eq = mat_line(notch1, notch2)
+
+    if abs(np.dot(concave_line_eq[0], np.array([0, 1]))) < 0.1:
+        output[0] = "other"
+        return output[0]
+
+    approx_s1 = np.vstack([approx[: min(notch1_idx, notch2_idx) + 1],
                              approx[max(notch1_idx, notch2_idx): ]])
+    approx_s2 = approx[min(notch1_idx, notch2_idx): max(notch1_idx, notch2_idx) + 1]
     # approx_head = approx[min(notch1_idx, notch2_idx): max(notch1_idx, notch2_idx) + 1]
-    head_box = cv2.minAreaRect(approx_head)
+    box1 = cv2.minAreaRect(approx_s1)
+    box2 = cv2.minAreaRect(approx_s2)
+
+    if box1[0][1] < box2[0][1]:
+        head_box = box1
+        shaft_box = box2
+    else:
+        head_box = box2
+        shaft_box = box1
 
 
     # DRAW EVERYTHING ELSE
     head_box_points = np.int0(cv2.boxPoints(head_box))
     img = cv2.circle(img, notch1, radius=3, color=(0, 255, 0), thickness=-1)
     img = cv2.circle(img, notch2, radius=3, color=(0, 255, 0), thickness=-1)
-    cv2.drawContours(img,[head_box_points], 0, (255, 0, 255), 2)
+    cv2.drawContours(img, [head_box_points], 0, (255, 0, 255), 2)
+
+    output[2] = img
+
     # cv2.drawContours(img,[whole_box], 0, (255, 255, 0), 2)
 
     '''
@@ -274,8 +281,8 @@ def screw_bolt_other(image, blur=(5,5), light_threshold=148, canny_t_lower=300, 
         '''
 
     # RETURN VALUE BASED ON NUMBER OF VERTICAL LINES
-    """
-    num_vertical, edges = count_parallel_lines(img, head_box)
+    # """
+    num_vertical, edges = count_parallel_lines(img, head_box, tolerance=0.2)
     output[4] = edges
 
     output[1] = ("vertical lines", num_vertical)
@@ -285,47 +292,7 @@ def screw_bolt_other(image, blur=(5,5), light_threshold=148, canny_t_lower=300, 
     else:
         output[0] = "screw"
         return(tuple(output))
-    """
-
-
-def rotate_image(rotateImage, angle):
-    """
-    purely for testing purposes
-    """
-
-    # Taking image height and width
-    imgHeight, imgWidth = rotateImage.shape[0], rotateImage.shape[1]
-
-    # Computing the centre x,y coordinates
-    # of an image
-    centreY, centreX = imgHeight//2, imgWidth//2
-
-    # Computing 2D rotation Matrix to rotate an image
-    rotationMatrix = cv2.getRotationMatrix2D((centreY, centreX), angle, 1.0)
-
-    # Now will take out sin and cos values from rotationMatrix
-    # Also used numpy absolute function to make positive value
-    cosofRotationMatrix = np.abs(rotationMatrix[0][0])
-    sinofRotationMatrix = np.abs(rotationMatrix[0][1])
-
-    # Now will compute new height & width of
-    # an image so that we can use it in
-    # warpAffine function to prevent cropping of image sides
-    newImageHeight = int((imgHeight * sinofRotationMatrix) +
-                         (imgWidth * cosofRotationMatrix))
-    newImageWidth = int((imgHeight * cosofRotationMatrix) +
-                        (imgWidth * sinofRotationMatrix))
-
-    # After computing the new height & width of an image
-    # we also need to update the values of rotation matrix
-    rotationMatrix[0][2] += (newImageWidth/2) - centreX
-    rotationMatrix[1][2] += (newImageHeight/2) - centreY
-
-    # Now, we will perform actual image rotation
-    rotatingimage = cv2.warpAffine(
-        rotateImage, rotationMatrix, (newImageWidth, newImageHeight))
-
-    return rotatingimage
+    # """
 
 
 def mat_line(pt1, pt2):
@@ -347,108 +314,60 @@ def contour_to_mat(contour):
     return output
 
 
-def mat_to_contour(mat):
-    output = np.zeros([mat.shape[0], 1, 2])
-    for i, point in enumerate(mat):
-        output[i][0][0] = point[0]
-        output[i][0][1] = point[1]
-    return output
-
-
 def add_affine(vec, axis=0):
-    ones_shape = ()
-    output = np.ones(ones_shape)
-    for i, element in enumerate(vec):
-        output[i] = element
+    """
+    assumes 2D input
+    """
+    ones_shape = [None, None]
+    ones_shape[axis] = vec.shape[axis] + 1
+    ones_shape[1 - axis] = vec.shape[1 - axis]
+
+    output = np.ones(ones_shape, dtype=int)
+
+    output[: vec.shape[0], : vec.shape[1]] = vec
+
     return output
 
 
-def least_squares_perp_offset(contour):
-    """
-    returns the slope of the line in vector form
-    """
-    points = contour_to_mat(contour)
-    n = points.shape[1]
-
-    splitted = np.hsplit(points[0], 1)
-    x, y = splitted[0], splitted[1]
-
-    y_bar = np.mean(y)
-    x_bar = np.mean(x)
-
-    try:
-        B = (y.transpose() @ y - n * y_bar**2 - x.transpose() @ x - n * x_bar**2) / \
-            (n * x_bar * y_bar - x.transpose() @ y)
-    except ZeroDivisionError:
-        return np.array([0, 1])
-
-    return np.array([1, -B**2 + np.sqrt(B^2 + 1)])
-
-
-def straighten_image(image, contour, center):
+def straighten_image(image, thresh, contour):
     """
     straighten about least squares line and center, then crop
+    if at the end the line of concavity is vertical, it's a nut
     """
-    rows, cols = image.shape[0], image.shape[1]
-    line = least_squares_perp_offset(contour)
-    try:
-        angle = -np.arctan(line[1] / line[0])
-    except ZeroDivisionError:
-        angle = 90
+    img = image.copy()
+    thresh = thresh.copy()
+    cnt = contour.copy()
+    cnt = contour_to_mat(cnt)
 
-    M = cv2.getRotationMatrix2D(center[0], center[1], angle, 1)
-    img_rot = cv2.warpAffine(image, M, (cols, rows))
-    points = contour_to_mat(contour)
-    contours_rot = add_affine(points) @ M[:]
+    center, dims, angle = cv2.minAreaRect(contour)
+    width = int(dims[0])
+    height = int(dims[1])
 
-    rectangle = cv2.boundingRect(contours_rot)
-
-    width = int(rectangle[1][0])
-    height = int(rectangle[1][1])
-    src_pts = np.int0(cv2.boxPoints(rectangle)).astype("float32")
-    # coordinate of the points in box points after the rectangle has been straightened
+    src_pts = cv2.boxPoints((center, dims, angle)).astype("float32")
     dst_pts = np.array([[0,       height-1],
                         [0,       0       ],
                         [width-1, 0       ],
                         [width-1, height-1]], dtype="float32")
+    if width > height:
+        dst_pts = np.flip(dst_pts, axis=1)
 
-    M1 = cv2.getPerspectiveTransform(src_pts, dst_pts)
-    # print(M1.shape)
+    M0 = cv2.getPerspectiveTransform(src_pts, dst_pts)
+    img = cv2.warpPerspective(image, M0, (min(width, height), max(width, height)))
+    thresh = cv2.warpPerspective(thresh, M0, (min(width, height), max(width, height)))
+    cnt = (M0 @ add_affine(cnt, axis=1).transpose())[:-1, :].transpose().astype(int)
 
-    # directly warp the rotated rectangle to get the straightened rectangle
-    cropped = cv2.warpPerspective(img_rot, M1, (max(width, height), min(width, height)))
+    width = img.shape[1]
+    height = img.shape[0]
 
-    return cropped
+    cnt_top, _ = cv2.findContours(thresh[0: height // 2, : ], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnt_bottom, _ = cv2.findContours(thresh[height // 2: , : ], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+    if cv2.contourArea(cnt_bottom[0]) > cv2.contourArea(cnt_top[0]):
+        M2 = cv2.getRotationMatrix2D((width // 2, height // 2), 180, 1)
+        img = cv2.warpAffine(img, M2, (width, height))
+        cnt = (M2 @ add_affine(cnt, axis=1).transpose()).transpose().astype(int)
 
-def find_intersect(eq1, eq2):
-    """
-    each eq_ is a tuple outputted by mat_line
-    """
-    coeffs = np.vstack((eq1[0], eq2[0]))
-    vals = np.vstack((eq1[1], eq2[1]))
-    try:
-        sol = np.linalg.inv(coeffs) @ vals
-        return sol[0].item(), sol[1].item()
-    except:
-        return None
-
-
-def intersection_in_range(inter_point, pt1, pt2):
-    if inter_point is None:
-        return False
-
-    x = inter_point[0]
-    y = inter_point[1]
-
-    min_x, max_x = min(pt1[0], pt2[0]), max(pt1[0], pt2[0])
-    min_y, max_y = min(pt1[1], pt2[1]), max(pt1[1], pt2[1])
-
-    return (min_x <= x and x <= max_x) and (min_y <= y <= max_y)
-
-
-def intersection_in_range_2(eq1, eq2, pt1, pt2):
-    return intersection_in_range(find_intersect(eq1, eq2), pt1, pt2)
+    return img, cnt
 
 
 def int_string_format(num, digits=3, padding=" "):
@@ -459,7 +378,6 @@ def int_string_format(num, digits=3, padding=" "):
         num_str = padding + num_str
 
     return num_str
-
 
 
 def count_parallel_lines(image, rectangle, long_base=True, direc=np.array([1, 0]),
@@ -504,8 +422,8 @@ def count_parallel_lines(image, rectangle, long_base=True, direc=np.array([1, 0]
             rho=1,
             theta=np.pi/180,
             threshold=5,
-            minLineLength=.33*img_rot.shape[:2][0],
-            maxLineGap=0.2*img_rot.shape[:2][0])
+            minLineLength=.2*img_rot.shape[0],
+            maxLineGap=0.15*img_rot.shape[0])
 
         line_list = []
         for line in lines:
@@ -519,20 +437,21 @@ def count_parallel_lines(image, rectangle, long_base=True, direc=np.array([1, 0]
 
                     num_vertical += 1
 
-        return num_vertical, img_rot, line_list, M1
+        return num_vertical, edges
 
     except:
-        return 0, img_rot, [], M1
+        return 0, img_rot
 
 
 if __name__ == "__main__":
     print('\033c')
 
-    img = cv2.imread(r"./images/bolt_real.png")
-    fastener_type, ratio, sketches, thresholds, head = screw_bolt_other(img); print(fastener_type, ratio)
+    img = cv2.imread(r"./images/wood_screw.jpg")
+    # fastener_type, ratio, sketches, thresholds, head = screw_bolt_other(img); print(fastener_type, ratio)
+    fastener_type, ratio, sketches, thresholds, head = screw_bolt_other(img, light_threshold = 230, thresholding=cv2.THRESH_BINARY_INV); print(fastener_type, ratio)
 
     # HANDLE WINDOWS
-    """
+    # """
     cv2.imshow("original", img)
     cv2.imshow('sketches', sketches)
     cv2.imshow('thresholds', thresholds)
@@ -543,3 +462,107 @@ if __name__ == "__main__":
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+'''
+
+def least_squares_perp_offset(contour):
+    """
+    returns the slope of the PCA line in vector form (2D only)
+    """
+    points = contour_to_mat(contour)
+    n = points.shape[1]
+
+    splitted = np.hsplit(points, 2)
+    x, y = splitted[0], splitted[1]
+
+    y_bar = np.mean(y)
+    x_bar = np.mean(x)
+
+    try:
+        B = 1/2 * (y.transpose() @ y - n * y_bar**2 - x.transpose() @ x + n * x_bar**2) / \
+            (n * x_bar * y_bar - x.transpose() @ y)
+        B = B[0].item()
+    except ZeroDivisionError:
+        return np.array([0, 1])
+
+    return np.array([1, -B + np.sqrt(B*B + 1)])
+
+
+def mat_to_contour(mat):
+    output = np.zeros([mat.shape[0], 1, 2])
+    for i, point in enumerate(mat):
+        output[i][0][0] = point[0]
+        output[i][0][1] = point[1]
+    return output
+
+
+def find_intersect(eq1, eq2):
+    """
+    each eq_ is a tuple outputted by mat_line
+    """
+    coeffs = np.vstack((eq1[0], eq2[0]))
+    vals = np.vstack((eq1[1], eq2[1]))
+    try:
+        sol = np.linalg.inv(coeffs) @ vals
+        return sol[0].item(), sol[1].item()
+    except:
+        return None
+
+
+def intersection_in_range(inter_point, pt1, pt2):
+    if inter_point is None:
+        return False
+
+    x = inter_point[0]
+    y = inter_point[1]
+
+    min_x, max_x = min(pt1[0], pt2[0]), max(pt1[0], pt2[0])
+    min_y, max_y = min(pt1[1], pt2[1]), max(pt1[1], pt2[1])
+
+    return (min_x <= x and x <= max_x) and (min_y <= y <= max_y)
+
+
+def intersection_in_range_2(eq1, eq2, pt1, pt2):
+    return intersection_in_range(find_intersect(eq1, eq2), pt1, pt2)
+
+
+def rotate_image(rotateImage, angle):
+    """
+    purely for testing purposes
+    """
+
+    # Taking image height and width
+    imgHeight, imgWidth = rotateImage.shape[0], rotateImage.shape[1]
+
+    # Computing the centre x,y coordinates
+    # of an image
+    centreY, centreX = imgHeight//2, imgWidth//2
+
+    # Computing 2D rotation Matrix to rotate an image
+    rotationMatrix = cv2.getRotationMatrix2D((centreY, centreX), angle, 1.0)
+
+    # Now will take out sin and cos values from rotationMatrix
+    # Also used numpy absolute function to make positive value
+    cosofRotationMatrix = np.abs(rotationMatrix[0][0])
+    sinofRotationMatrix = np.abs(rotationMatrix[0][1])
+
+    # Now will compute new height & width of
+    # an image so that we can use it in
+    # warpAffine function to prevent cropping of image sides
+    newImageHeight = int((imgHeight * sinofRotationMatrix) +
+                         (imgWidth * cosofRotationMatrix))
+    newImageWidth = int((imgHeight * cosofRotationMatrix) +
+                        (imgWidth * sinofRotationMatrix))
+
+    # After computing the new height & width of an image
+    # we also need to update the values of rotation matrix
+    rotationMatrix[0][2] += (newImageWidth/2) - centreX
+    rotationMatrix[1][2] += (newImageHeight/2) - centreY
+
+    # Now, we will perform actual image rotation
+    rotatingimage = cv2.warpAffine(
+        rotateImage, rotationMatrix, (newImageWidth, newImageHeight))
+
+    return rotatingimage
+
+'''
