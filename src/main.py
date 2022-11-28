@@ -8,7 +8,6 @@ from utils import screw_bolt_other, move_output_bin, int_string_format
 if __name__ == "__main__":
     output_kit = ServoKit(channels=16)
     belt_kit = MotorKit(i2c=board.I2C())
-
     cap = cv2.VideoCapture('/dev/video0')
 
     if not cap.isOpened():
