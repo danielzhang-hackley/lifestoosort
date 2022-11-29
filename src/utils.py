@@ -4,19 +4,24 @@ import numpy as np
 
 def move_output_bin(kit, type):
 	if (type == "screw"):
-		kit.servo[1].angle = 40
+		kit.servo[1].angle = 0
 	elif (type == "bolt"):
-		kit.servo[1].angle = 140
+		kit.servo[1].angle = 180
 	else:
 		kit.servo[1].angle = 90
 
+def move_belt(kit, degrees):
+    for i in range(degrees):
+        kit.stepper1.onestep()
+        
+    kit.stepper1.release()
 
 
 # short side no lines, long side parallel to concave = screw
 # short side no lines, long side perpendicular to concave = nut
 # short side with lines, long slide parallel to concave = bolt
 
-def screw_bolt_other(image, blur=(5,5), light_threshold=148, thresholding=cv2.THRESH_BINARY,
+def screw_bolt_other(image, blur=(3, 3), light_threshold=148, thresholding=cv2.THRESH_BINARY,
                      canny_t_lower=300, canny_t_upper=400):
     output = [None for _ in range(5)]  # type, reasoning, drawings, thresh, head
 
@@ -359,6 +364,9 @@ def count_parallel_lines(image, rectangle, long_base=True, direc=np.array([1, 0]
     bounding rectangle, given that the rectangle is on it's base
     returns number of lines perpendicular to direc
     """
+    image = image.copy()
+    crop_distance = image.shape[1] // 20
+    image = image[:, crop_distance: image.shape[1] - crop_distance]
     direc = direc / np.linalg.norm(direc)
 
     width = int(rectangle[1][0])
