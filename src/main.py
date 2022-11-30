@@ -36,7 +36,7 @@ if __name__ == "__main__":
             print("Can't receive frame (stream end?). Exiting ...")
             break
 
-        if i % 50 == 0:
+        if i % 25 == 0:
             
             
             most_likely_fastener_type = max(classifications, key=classifications.get)
@@ -61,7 +61,7 @@ if __name__ == "__main__":
             # let the output servo catch up to the belt
             time.sleep(2)
             # move the belt
-            # move_belt(belt_kit, belt_move_amt)
+            move_belt(belt_kit, belt_move_amt)
             
             classifications = {"screw": 0, "bolt": 0, "other": 0}
             i = 1
@@ -78,9 +78,9 @@ if __name__ == "__main__":
             print("\r", int_string_format(i), most_likely_fastener_type, ratio, end='')
 
             cv2.imshow('original', img)
-            cv2.imshow('sketches', sketches)
-            cv2.imshow('thresholds', thresh)
-            cv2.imshow('edges', head)
+            #cv2.imshow('sketches', sketches)
+            #cv2.imshow('thresholds', thresh)
+            #cv2.imshow('edges', head)
         except:
             pass
 
