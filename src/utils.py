@@ -62,13 +62,13 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
 
     try:
         convexity_defects = cv2.convexityDefects(approx, convex_hull)
+        if convexity_defects.shape[0] <= 1:
+            output[0] = "other"
+            return tuple(output)
     except:
         output[0] = "other"
         return tuple(output)
 
-    if convexity_defects.shape[0] <= 1:
-        output[0] = "other"
-        return tuple(output)
 
 
     # FIND CONVEXITY DEFECT LOCATIONS
@@ -112,11 +112,11 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
 
 
     # FIND BOUNDING BOX FOR HEAD
-    concave_line_eq = mat_line(notch1, notch2)
-
-    if abs(np.dot(concave_line_eq[0], np.array([1, 0]))) < 0.1:
+    concave_line_vec = notch1 - notch2
+    concave_line_mag = np.linalg.norm(concave_line_vec)
+    if abs(np.dot(concave_line_vec / concave_line_mag, np.array([1, 0]))) < 0.15:
         output[0] = "other"
-        return output[0]
+        return tuple(output)
 
     concave_line_mid = np.array([(notch2[0] + notch1[0]) // 2, (notch2[1] + notch1[1]) // 2])
     if concave_line_mid[1] > img.shape[1] / 2:
@@ -156,13 +156,13 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
 
     if num_vertical >= 2:
         output[0] = "hex"
-        return(tuple(output))
+        return tuple(output)
     else:
         if count_parallel_lines(img, shaft_box, tolerance=0.2)[0] <= 1:
             output[0] = "other"
-            return output
+            return tuple(output)
         output[0] = "non-hex"
-        return(tuple(output))
+        return tuple(output)
     # """
 
 

@@ -61,7 +61,7 @@ if __name__ == "__main__":
             # let the output servo catch up to the belt
             time.sleep(2)
             # move the belt
-            # move_belt(belt_kit, belt_move_amt)
+            move_belt(belt_kit, belt_move_amt)
 
             classifications = {"non-hex": 0, "hex": 0, "other": 0}
             i = 1
