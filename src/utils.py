@@ -31,9 +31,9 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
 
     output[2], output[3] = img, thresh
 
-
     if len(contours) == 0:
         return tuple(output)
+
 
     # FIND LARGEST AREA CONTOUR
     cnt = contours[0]
@@ -44,10 +44,13 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
             max_area = cv2.contourArea(cont)
 
 
+
     img, cnt = straighten_image(img, cnt)
 
     epsilon = 0.005*cv2.arcLength(cnt, True)
     approx = cv2.approxPolyDP(cnt, epsilon, True)
+
+
 
     # CREATE CONVEX HULL
     convex_hull_points = cv2.convexHull(approx)
@@ -63,10 +66,9 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
         output[0] = "other"
         return tuple(output)
 
-    if convexity_defects is None:
+    if convexity_defects.shape[0] <= 1:
         output[0] = "other"
         return tuple(output)
-
 
 
     # FIND CONVEXITY DEFECT LOCATIONS
@@ -99,6 +101,7 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
             elif distance < second_closest[-1]:
                 second_closest = [(first_point_idx, i), (second_point_idx, j), distance]
 
+
     # FIND NOTCHES
     # if lower bound, we can move forward one, if upper bound, we can move backwards one
     # dct = {0: 1, 1: -1}
@@ -107,8 +110,8 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
     notch1 = approx[notch1_idx][0]
     notch2 = approx[notch2_idx][0]
 
-    # FIND BOUNDING BOX FOR HEAD
 
+    # FIND BOUNDING BOX FOR HEAD
     concave_line_eq = mat_line(notch1, notch2)
 
     if abs(np.dot(concave_line_eq[0], np.array([0, 1]))) < 0.1:
@@ -234,14 +237,11 @@ def count_parallel_lines(image, rectangle, long_base=True, direc=np.array([1, 0]
     M1 = cv2.getPerspectiveTransform(src_pts, dst_pts)
     # print(M1.shape)
 
-
     # directly warp the rotated rectangle to get the straightened rectangle
     img_rot = cv2.warpPerspective(image, M1, (max(width, height), min(width, height)))
 
-
     # CANNY EDGE DETECTION ON ROTATED HEAD
     edges = cv2.Canny(cv2.blur(img_rot, blur), t_lower, t_upper, apertureSize=aperture_size)
-
 
     # HOUGH LINE APPROXIMATION
     num_vertical = 0
@@ -270,7 +270,6 @@ def count_parallel_lines(image, rectangle, long_base=True, direc=np.array([1, 0]
 
     except:
         return 0, img_rot
-
 
 
 def mat_line(pt1, pt2):
