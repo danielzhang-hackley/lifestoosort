@@ -61,15 +61,9 @@ if __name__ == "__main__":
             # let the output servo catch up to the belt
             time.sleep(2)
             # move the belt
-<<<<<<< HEAD
-            move_belt(belt_kit, belt_move_amt)
-            
-            classifications = {"screw": 0, "bolt": 0, "other": 0}
-=======
             # move_belt(belt_kit, belt_move_amt)
 
             classifications = {"non-hex": 0, "hex": 0, "other": 0}
->>>>>>> a659991947ebc21b472c9e93f77e19341fe359e8
             i = 1
 
         crop_distance = img.shape[0] // 15
@@ -84,9 +78,9 @@ if __name__ == "__main__":
             print("\r", int_string_format(i), most_likely_fastener_type, ratio, end='')
 
             cv2.imshow('original', img)
-            #cv2.imshow('sketches', sketches)
-            #cv2.imshow('thresholds', thresh)
-            #cv2.imshow('edges', head)
+            cv2.imshow('sketches', sketches)
+            cv2.imshow('thresholds', thresh)
+            cv2.imshow('edges', head)
         except:
             pass
 

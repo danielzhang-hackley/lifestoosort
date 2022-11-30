@@ -114,7 +114,7 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
     # FIND BOUNDING BOX FOR HEAD
     concave_line_eq = mat_line(notch1, notch2)
 
-    if abs(np.dot(concave_line_eq[0], np.array([0, 1]))) < 0.1:
+    if abs(np.dot(concave_line_eq[0], np.array([1, 0]))) < 0.1:
         output[0] = "other"
         return output[0]
 
