@@ -88,7 +88,6 @@ if __name__ == "__main__":
 
         if i % 50 == 0:
 
-
             most_likely_fastener_type = max(classifications, key=classifications.get)
             start_loc = 360
 
@@ -125,7 +124,8 @@ if __name__ == "__main__":
         img = img[crop_distance: img.shape[0] - crop_distance, :]
         try:
             fastener_type, ratio, sketches, thresh, head = classify_fastener(img)
-            classifications[fastener_type] += 1
+            if i >= 10:
+                classifications[fastener_type] += 1
             # move_output_bin(fastener_type)
 
             # USE THE BELOW VALUE TO DETERMINE OUTPUT RAMP ANGLE
