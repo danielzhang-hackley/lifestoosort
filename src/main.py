@@ -4,20 +4,69 @@ from adafruit_motorkit import MotorKit
 import board
 from utils import classify_fastener, move_output_bin, int_string_format, move_belt
 import time
+import math
 
 
 class Fastener:
-    def __init__(self, ident, degrees):
-        self._id = ident
-        self._deg = degrees
+    def __init__(self, klass, dist):
+        self._type = klass
+        self._dist = dist
 
-    def __str__(self):
-        return "Degrees: " + self._deg + "; Type: " + self._id
+    def get_type(self):
+        return str(self._type)
+
+    def set_type(self, klass):
+        self._type = str(klass)
+
+    def get_dist(self):
+        return float(self._dist)
+
+    def set_dist(self, dist):
+        self._dist = dist
+
+    def change_dist(self, dist):
+        self._dist += dist
+
+
+class LoadedBelt:
+    def __init__(self, fastener_list=None, radius=17., length=100, output_kit=ServoKit(channels=16), belt_kit=MotorKit(i2c=board.I2C())):
+        # fasteners is a list of Fasteners
+        self._fastener_list = [] if fastener_list is None else fastener_list
+        self._radius = radius  # millimeters radius of pipe
+        self._length = length  # millimeters length of belt (fov to end)
+        self._next_type = self._fastener_list[0].get_type()
+        self._next_dist = self._fastener_list[0].get_dist()
+
+        self._output_kit = output_kit
+        self._belt_kit = belt_kit
+
+
+    def deg_to_dist(self, deg):
+        return self._radius * (deg * math.pi / 180)
+
+    def dist_to_deg(self, dist):
+        return dist / self._radius * (180 / math.pi)
+
+    def push(self, fastener):
+        self._fastener_list.append(fastener)
+
+    def pop(self):
+        return self._fastener_list.pop(0)
+
+    def rotate(self):
+        first_fastener_type = self._fastener_list[0].get_type()
+        first_fastener_dist = self._fastener_list[0].get_dist()
+        move_output_bin(self._output_kit, first_fastener_type)
+        move_belt(self._belt_kit, self.dist_to_deg(first_fastener_dist))
+
+        for fastener in self._fastener_list:
+            fastener.change_dist(first_fastener_dist)
+        self.pop()
 
 
 if __name__ == "__main__":
     output_loc = "other"
-    belt_move_amt = 180
+    belt_move_deg = 180
     fasteners = []
 
     output_kit = ServoKit(channels=16)
@@ -42,12 +91,14 @@ if __name__ == "__main__":
 
             most_likely_fastener_type = max(classifications, key=classifications.get)
             start_loc = 360
+
+            """
             fasteners.append(Fastener(most_likely_fastener_type, start_loc))
 
             #increment the locations of the fasteners to what they will be after the belt is moved
             kill_list = []
             for fastener_index in range(len(fasteners)):
-                fasteners[fastener_index]._deg -= belt_move_amt
+                fasteners[fastener_index]._deg -= belt_move_deg
                 if fasteners[fastener_index]._deg <= 0:
                     fastener_at_end = fasteners[fastener_index]
                     output_loc = fastener_at_end._id
@@ -62,7 +113,10 @@ if __name__ == "__main__":
             # let the output servo catch up to the belt
             time.sleep(2)
             # move the belt
-            # move_belt(belt_kit, belt_move_amt)
+            # move_belt(belt_kit, belt_move_deg)
+            """
+
+
 
             classifications = {"non-hex": 0, "hex": 0, "other": 0}
             i = 1
