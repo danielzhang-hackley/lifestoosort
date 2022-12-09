@@ -1,3 +1,5 @@
+import numpy as np
+
 class Fastener:
     def __init__(self, klass, dist):
         self._type = klass
@@ -34,4 +36,9 @@ class LoadedBelt:
 
 belt = LoadedBelt([Fastener("bolt", 1), Fastener("screw", 5)])
 belt.rotate(3)
-print(belt.get_pos())
+# print(belt.get_pos())
+
+x = np.array([[1, 2],
+              [3, 4],
+              [5, 6]])
+print(np.max(x[:, 0]))
