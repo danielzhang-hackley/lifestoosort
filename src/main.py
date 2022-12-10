@@ -29,13 +29,11 @@ class Fastener:
 
 
 class LoadedBelt:
-    def __init__(self, fastener_list=None, radius=17., length=100, output_kit=ServoKit(channels=16), belt_kit=MotorKit(i2c=board.I2C())):
+    def __init__(self, fastener_list=None, radius=17., length=135, output_kit=ServoKit(channels=16), belt_kit=MotorKit(i2c=board.I2C())):
         # fasteners is a list of Fasteners
         self._fastener_list = [] if fastener_list is None else fastener_list
         self._radius = radius  # millimeters radius of pipe
         self._length = length  # millimeters length of belt (fov to end)
-        self._next_type = self._fastener_list[0].get_type()
-        self._next_dist = self._fastener_list[0].get_dist()
 
         self._output_kit = output_kit
         self._belt_kit = belt_kit
@@ -54,13 +52,16 @@ class LoadedBelt:
         return self._fastener_list.pop(0)
 
     def rotate(self):
-        first_fastener_type = self._fastener_list[0].get_type()
-        first_fastener_dist = self._fastener_list[0].get_dist()
+        if len(self._fastener_list) > 0:
+            first_fastener_type = self._fastener_list[0].get_type()
+            first_fastener_dist = self._fastener_list[0].get_dist()
+        else:
+            return None
         move_output_bin(self._output_kit, first_fastener_type)
-        move_belt(self._belt_kit, self.dist_to_deg(first_fastener_dist))
+        move_belt(self._belt_kit, int(self.dist_to_deg(self._length - first_fastener_dist) / 1.8))
 
         for fastener in self._fastener_list:
-            fastener.change_dist(first_fastener_dist)
+            fastener.change_dist(self._length - first_fastener_dist)
         self.pop()
 
 
@@ -72,6 +73,8 @@ if __name__ == "__main__":
     output_kit = ServoKit(channels=16)
     belt_kit = MotorKit(i2c=board.I2C())
     cap = cv2.VideoCapture('/dev/video0')
+
+    loaded_belt = LoadedBelt()
 
     if not cap.isOpened():
         print("Cannot open camera")
@@ -87,12 +90,14 @@ if __name__ == "__main__":
             break
 
         if i % 50 == 0:
-
             most_likely_fastener_type = max(classifications, key=classifications.get)
+            print(most_likely_fastener_type, dist)
+            loaded_belt.push(Fastener(most_likely_fastener_type, dist))
+            loaded_belt.rotate()
+
             """
             start_loc = 360
 
-            """
             fasteners.append(Fastener(most_likely_fastener_type, start_loc))
 
             #increment the locations of the fasteners to what they will be after the belt is moved
@@ -107,7 +112,6 @@ if __name__ == "__main__":
             kill_list.reverse()
             for k in kill_list:
                 fasteners.pop(k)
-                """
 
             print("current output: " + most_likely_fastener_type)
             # move the output bin
@@ -118,27 +122,26 @@ if __name__ == "__main__":
             # move_belt(belt_kit, belt_move_deg)
             """
 
-
-
             classifications = {"non-hex": 0, "hex": 0, "other": 0}
             i = 1
 
         crop_distance = img.shape[0] // 15
         img = img[crop_distance: img.shape[0] - crop_distance, :]
         try:
-            fastener_type, ratio, sketches, thresh, head = classify_fastener(img)
+            fastener_type, ratio, sketches, thresh, head, dist = classify_fastener(img)
             if i >= 10:
                 classifications[fastener_type] += 1
             # move_output_bin(fastener_type)
 
             # USE THE BELOW VALUE TO DETERMINE OUTPUT RAMP ANGLE
             most_likely_fastener_type = max(classifications, key=classifications.get)
-            print("\r", int_string_format(i), most_likely_fastener_type, ratio, end='')
+            print("\r", int_string_format(i), end='')
 
             cv2.imshow('original', img)
             cv2.imshow('sketches', sketches)
             cv2.imshow('thresholds', thresh)
-            cv2.imshow('edges', head)
+            if head is not None:
+                cv2.imshow('edges', head)
         except:
             pass
 

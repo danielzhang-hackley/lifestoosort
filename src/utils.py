@@ -20,7 +20,7 @@ def move_belt(kit, degrees):
 
 def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.THRESH_BINARY,
                      canny_t_lower=300, canny_t_upper=400, min_contour_size=None):
-    output = [None for _ in range(5)]  # type, reasoning, drawings, thresh, head
+    output = [None for _ in range(6)]  # type, reasoning, drawings, thresh, head, distance
 
 
 
@@ -29,8 +29,7 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
     grayscale = cv2.cvtColor(cv2.blur(img, blur), cv2.COLOR_BGR2GRAY)
 
     if min_contour_size is None:
-        min_contour_size = img.shape[0] * img.shape[1] * 0.05
-
+        min_contour_size = img.shape[0] * img.shape[1] * 0.01
     _, thresh = cv2.threshold(grayscale, light_threshold, 255, thresholding)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -45,12 +44,13 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
     max_pos_cnt = 0  # change depending on right, left, up or down
     for cont in contours:
         cont_mat = contour_to_mat(cont)
-
         # change max min, and second clause of condition depending on right, left, up, or down
         max_pos_cont_mat = np.max(cont_mat[:, 0])
         if cv2.contourArea(cont) > min_contour_size and max_pos_cont_mat > max_pos_cnt:
             cnt = cont_mat
             max_pos_cnt = max_pos_cont_mat
+
+    output[5] = max_pos_cnt / img.shape[1] * 110
 
     cnt = mat_to_contour(cnt)
 
@@ -68,6 +68,7 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
     # draw poly estimate and convex hull
     cv2.drawContours(img, [approx], -1, (0, 0, 255), 3)
     cv2.drawContours(img, [convex_hull_points], -1, (255, 0, 0), 2)
+
 
     try:
         convexity_defects = cv2.convexityDefects(approx, convex_hull)
@@ -336,8 +337,8 @@ def int_string_format(num, digits=3, padding=" "):
 if __name__ == "__main__":
     print('\033c')
 
-    img = cv2.imread(r"./images/bolt_real_rotated.png")
-    fastener_type, ratio, sketches, thresholds, head = classify_fastener(img); print(fastener_type, ratio)
+    img = cv2.imread(r"./images/bolt_real.png")
+    fastener_type, ratio, sketches, thresholds, head, dist = classify_fastener(img); print(fastener_type, ratio, dist)
     # fastener_type, ratio, sketches, thresholds, head = classify_fastener(img, light_threshold = 230, thresholding=cv2.THRESH_BINARY_INV); print(fastener_type, ratio)
 
     # HANDLE WINDOWS
