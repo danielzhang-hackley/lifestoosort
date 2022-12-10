@@ -17,7 +17,7 @@ class Fastener:
 
 if __name__ == "__main__":
     output_loc = "other"
-    belt_move_amt = 180
+    belt_move_amt = 200
     fasteners = []
 
     output_kit = ServoKit(channels=16)
@@ -40,6 +40,7 @@ if __name__ == "__main__":
         if i % 50 == 0:
             
             most_likely_fastener_type = max(classifications, key=classifications.get)
+            """
             start_loc = 360
             fasteners.append(Fastener(most_likely_fastener_type, start_loc))
 
@@ -55,9 +56,11 @@ if __name__ == "__main__":
             kill_list.reverse()
             for k in kill_list:
                 fasteners.pop(k)
+                """
 
+            print("current output: " + most_likely_fastener_type)
             # move the output bin
-            move_output_bin(output_kit, output_loc)
+            move_output_bin(output_kit, most_likely_fastener_type)
             # let the output servo catch up to the belt
             time.sleep(2)
             # move the belt
