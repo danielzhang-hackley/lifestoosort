@@ -19,12 +19,17 @@ def move_belt(kit, degrees):
 
 
 def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.THRESH_BINARY,
-                     canny_t_lower=300, canny_t_upper=400):
+                     canny_t_lower=300, canny_t_upper=400, min_contour_size=None):
     output = [None for _ in range(5)]  # type, reasoning, drawings, thresh, head
+
+
 
     # PROCESS IMAGE AND CREATE CONTOURS
     img = image.copy()  # keep the original image clean
     grayscale = cv2.cvtColor(cv2.blur(img, blur), cv2.COLOR_BGR2GRAY)
+
+    if min_contour_size is None:
+        min_contour_size = img.shape[0] * img.shape[1] * 0.05
 
     _, thresh = cv2.threshold(grayscale, light_threshold, 255, thresholding)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -35,15 +40,19 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
         return tuple(output)
 
 
-    # FIND LARGEST AREA CONTOUR
-    cnt = contours[0]
-    max_area = cv2.contourArea(cnt)
+    # FIND CONTOUR FARTHEST ___
+    cnt = np.array([[0, 0]])
+    max_pos_cnt = 0  # change depending on right, left, up or down
     for cont in contours:
-        if cv2.contourArea(cont) > max_area:
-            cnt = cont
-            max_area = cv2.contourArea(cont)
+        cont_mat = contour_to_mat(cont)
 
+        # change max min, and second clause of condition depending on right, left, up, or down
+        max_pos_cont_mat = np.max(cont_mat[:, 0])
+        if cv2.contourArea(cont) > min_contour_size and max_pos_cont_mat > max_pos_cnt:
+            cnt = cont_mat
+            max_pos_cnt = max_pos_cont_mat
 
+    cnt = mat_to_contour(cnt)
 
     img, cnt = straighten_image(img, cnt)
 
@@ -311,7 +320,7 @@ def mat_to_contour(mat):
     for i, point in enumerate(mat):
         output[i][0][0] = point[0]
         output[i][0][1] = point[1]
-    return output
+    return output.astype(int)
 
 
 def int_string_format(num, digits=3, padding=" "):
@@ -327,9 +336,9 @@ def int_string_format(num, digits=3, padding=" "):
 if __name__ == "__main__":
     print('\033c')
 
-    img = cv2.imread(r"./images/wood_screw.jpg")
-    # fastener_type, ratio, sketches, thresholds, head = classify_fastener(img); print(fastener_type, ratio)
-    fastener_type, ratio, sketches, thresholds, head = classify_fastener(img, light_threshold = 230, thresholding=cv2.THRESH_BINARY_INV); print(fastener_type, ratio)
+    img = cv2.imread(r"./images/bolt_real_rotated.png")
+    fastener_type, ratio, sketches, thresholds, head = classify_fastener(img); print(fastener_type, ratio)
+    # fastener_type, ratio, sketches, thresholds, head = classify_fastener(img, light_threshold = 230, thresholding=cv2.THRESH_BINARY_INV); print(fastener_type, ratio)
 
     # HANDLE WINDOWS
     # """

@@ -1,19 +1,44 @@
-import utils
 import numpy as np
 
-print('\033c')
+class Fastener:
+    def __init__(self, klass, dist):
+        self._type = klass
+        self._dist = dist
 
-"""
-[[[383 163]]
+    def get_type(self):
+        return str(self._type)
 
- [[382 164]]
+    def set_type(self, klass):
+        self._type = str(klass)
 
- [[374 164]]
+    def get_dist(self):
+        return float(self._dist)
 
- [[373 165]]]
+    def set_dist(self, dist):
+        self._dist = dist
 
-"""
+    def increase_dist(self, dist):
+        self._dist += dist
 
-x = np.array([[1, 0], [2, 2]])
-print(utils.add_affine(x))
-y = {"a": 1}
+class LoadedBelt:
+    diameter = 34.  # millimeters
+    radius = diameter/2
+
+    def __init__(self, fastener_list=None):
+        # fasteners is a list of Fasteners
+        self._fastener_list = [] if fastener_list is None else fastener_list
+
+    def rotate(self, deg):
+        [fastener.increase_dist(deg) for fastener in self._fastener_list]
+
+    def get_pos(self):
+        [print(fastener.get_dist()) for fastener in self._fastener_list]
+
+belt = LoadedBelt([Fastener("bolt", 1), Fastener("screw", 5)])
+belt.rotate(3)
+# print(belt.get_pos())
+
+x = np.array([[1, 2],
+              [3, 4],
+              [5, 6]])
+print(np.max(x[:, 0]))
