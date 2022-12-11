@@ -20,7 +20,7 @@ def move_belt(kit, degrees):
 
 def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.THRESH_BINARY,
                      canny_t_lower=300, canny_t_upper=400, min_contour_prop=None):
-    output = [None for _ in range(5)]  # type, reasoning, drawings, thresh, head
+    output = [None for _ in range(6)]  # type, reasoning, drawings, thresh, head, distance
 
 
 
@@ -48,7 +48,6 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
     max_pos_cnt = 0  # change depending on right, left, up or down
     for cont in contours:
         cont_mat = contour_to_mat(cont)
-
         # change max min, and second clause of condition depending on right, left, up, or down
         max_pos_cont_mat = np.max(cont_mat[:, 0])
 
@@ -60,6 +59,8 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
         if area > min_contour_size and max_pos_cont_mat > max_pos_cnt:
             cnt = cont_mat
             max_pos_cnt = max_pos_cont_mat
+
+    output[5] = max_pos_cnt / img.shape[1] * 110
 
     cnt = mat_to_contour(cnt)
 
@@ -75,6 +76,7 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
     # draw poly estimate and convex hull
     cv2.drawContours(img, [approx], -1, (0, 0, 255), 3)
     cv2.drawContours(img, [convex_hull_points], -1, (255, 0, 0), 2)
+
 
     try:
         convexity_defects = cv2.convexityDefects(approx, convex_hull)
@@ -344,9 +346,10 @@ if __name__ == "__main__":
     print('\033c')
 
     img = cv2.imread(r"./images/bolt_real.png")
-    fastener_type, ratio, sketches, thresholds, head = classify_fastener(img); print(fastener_type, ratio)
+    fastener_type, ratio, sketches, thresholds, head, dist = classify_fastener(img); print(fastener_type, ratio, dist)
     # fastener_type, ratio, sketches, thresholds, head = classify_fastener(img, light_threshold = 230, thresholding=cv2.THRESH_BINARY_INV); print(fastener_type, ratio)
 
+    print(fastener_type, dist)
     # HANDLE WINDOWS
     # """
     cv2.imshow("original", img)
