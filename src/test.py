@@ -1,4 +1,5 @@
 import numpy as np
+import cv2 as cv
 
 class Fastener:
     def __init__(self, klass, dist):
@@ -34,11 +35,36 @@ class LoadedBelt:
     def get_pos(self):
         [print(fastener.get_dist()) for fastener in self._fastener_list]
 
-belt = LoadedBelt([Fastener("bolt", 1), Fastener("screw", 5)])
-belt.rotate(3)
-# print(belt.get_pos())
 
-x = np.array([[1, 2],
-              [3, 4],
-              [5, 6]])
-print(np.max(x[:, 0]))
+'''
+img = cv.imread(r"./images/bolt_real_rotated.png")
+mask = np.zeros(img.shape, np.uint8)
+grayscale = cv.cvtColor(cv.blur(img, (2, 2)), cv.COLOR_BGR2GRAY)
+_, thresh = cv.threshold(grayscale, 148, 255, cv.THRESH_BINARY)
+contours, _ = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+max_area = 0
+cnt = contours[0]
+for cont in contours:
+    if cv.contourArea(cont) > max_area:
+        cnt = cont
+        max_area = cv.contourArea(cont)
+        cimg = np.zeros_like(thresh)
+
+        print(max_area)
+
+print("***************")
+cv.drawContours(mask, contours, -1, (0,255,0),1)
+print(max_area)
+print(img.shape[0] * img.shape[1])
+print(max_area / (img.shape[0] * img.shape[1]))
+cv.imshow("test", mask)
+cv.waitKey(0)
+cv.destroyAllWindows()
+'''
+
+
+x = np.array([[[1, 2, 3], [1, 2, 3], [1, 2, 3]],
+              [[1, 2, 3], [1, 2, 3], [1, 2, 3]],
+              [[1, 2, 3], [1, 2, 3], [1, 2, 3]]])
+print(np.sum(x == np.array([1, 2, 3])))
