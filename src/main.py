@@ -58,6 +58,7 @@ class LoadedBelt:
         else:
             return None
         move_output_bin(self._output_kit, first_fastener_type)
+        time.sleep(0.5)
         move_belt(self._belt_kit, int(self.dist_to_deg(self._length - first_fastener_dist) / 1.8))
 
         for fastener in self._fastener_list:
@@ -65,77 +66,63 @@ class LoadedBelt:
         self.pop()
 
 
-if __name__ == "__main__":
-    output_loc = "other"
-    belt_move_amt = 200
-    fasteners = []
 
-    output_kit = ServoKit(channels=16)
-    belt_kit = MotorKit(i2c=board.I2C())
+def deg_to_dist(deg, radius):
+    return radius * (deg * math.pi / 180)
+
+def dist_to_deg(dist, radius):
+    return dist / radius * (180 / math.pi)
+
+def rotate(klass, dist, radius, length, belt_kit, output_kit):
+    move_output_bin(output_kit, klass)
+    time.sleep(0.5)
+    move_belt(belt_kit, int(dist_to_deg(length - dist, radius) / 1.8))
+
+
+if __name__ == "__main__":
+    print("\033c")
     cap = cv2.VideoCapture('/dev/video0')
+    output_kit=ServoKit(channels=16)
+    belt_kit=MotorKit(i2c=board.I2C())
+    radius = 17
+    length = 135
 
     loaded_belt = LoadedBelt()
 
     if not cap.isOpened():
         print("Cannot open camera")
         exit()
-
+    
+    first_iter = True
     i = 1
     classifications = {"non-hex": 0, "hex": 0, "other": 0}
     while True:
         ret, img = cap.read()
-
+        if first_iter:
+            fastener_type, ratio, sketches, thresh, head, dist = classify_fastener(img, light_threshold=144, blur=(2,2))
+            first_iter = False
         if not ret:
             print("Can't receive frame (stream end?). Exiting ...")
             break
 
-        if i % 50 == 0:
+        if i % 40 == 0:
             most_likely_fastener_type = max(classifications, key=classifications.get)
-            print(most_likely_fastener_type, dist)
-            loaded_belt.push(Fastener(most_likely_fastener_type, dist))
-            loaded_belt.rotate()
-
-            """
-            start_loc = 360
-
-            fasteners.append(Fastener(most_likely_fastener_type, start_loc))
-
-            #increment the locations of the fasteners to what they will be after the belt is moved
-            kill_list = []
-            for fastener_index in range(len(fasteners)):
-                fasteners[fastener_index]._deg -= belt_move_deg
-                if fasteners[fastener_index]._deg <= 0:
-                    fastener_at_end = fasteners[fastener_index]
-                    output_loc = fastener_at_end._id
-                    kill_list.append(fastener_index)
-                    print("current output: " + output_loc)
-            kill_list.reverse()
-            for k in kill_list:
-                fasteners.pop(k)
-
-            print("current output: " + most_likely_fastener_type)
-            # move the output bin
-            move_output_bin(output_kit, most_likely_fastener_type)
-            # let the output servo catch up to the belt
-            time.sleep(2)
-            # move the belt
-            # move_belt(belt_kit, belt_move_deg)
-            """
-
+            rotate(most_likely_fastener_type, dist, radius, length, belt_kit, output_kit)
             classifications = {"non-hex": 0, "hex": 0, "other": 0}
             i = 1
-
-        crop_distance = img.shape[0] // 15
-        img = img[crop_distance: img.shape[0] - crop_distance, :]
+        
+        top_crop_distance = int(img.shape[0] * 0.04)
+        bottom_crop_distance = int(img.shape[0] * 0.11)
+        img = img[top_crop_distance: img.shape[0] - bottom_crop_distance, :]
         try:
-            fastener_type, ratio, sketches, thresh, head, dist = classify_fastener(img)
-            if i >= 10:
+            fastener_type, ratio, sketches, thresh, head, dist = classify_fastener(img, light_threshold=144)
+            if i >= 20:  # allow time for camera to focus
                 classifications[fastener_type] += 1
             # move_output_bin(fastener_type)
 
             # USE THE BELOW VALUE TO DETERMINE OUTPUT RAMP ANGLE
             most_likely_fastener_type = max(classifications, key=classifications.get)
-            print("\r", int_string_format(i), end='')
+            print("\r", int_string_format(i) + " ", most_likely_fastener_type, dist, end='')
 
             cv2.imshow('original', img)
             cv2.imshow('sketches', sketches)

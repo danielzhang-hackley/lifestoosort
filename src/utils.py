@@ -29,7 +29,7 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
     grayscale = cv2.cvtColor(cv2.blur(img, blur), cv2.COLOR_BGR2GRAY)
 
     if min_contour_prop is None:
-        min_contour_size = img.shape[0] * img.shape[1] * 0.001
+        min_contour_size = img.shape[0] * img.shape[1] * 0.0025
     else:
         min_contour_size = img.shape[0] * img.shape[1] * min_contour_prop
 
@@ -40,6 +40,7 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
     output[2], output[3] = img, thresh
 
     if len(contours) == 0:
+        output[5] = 30.
         return tuple(output)
 
 
@@ -50,19 +51,31 @@ def classify_fastener(image, blur=(3, 3), light_threshold=148, thresholding=cv2.
         cont_mat = contour_to_mat(cont)
         # change max min, and second clause of condition depending on right, left, up, or down
         max_pos_cont_mat = np.max(cont_mat[:, 0])
-
-        cimg = np.zeros_like(img)
-        cv2.drawContours(cimg, [cont], -1, color=(255, 0, 0), thickness=-1)
-
-        area = np.sum(cimg == 255)
-
-        if area > min_contour_size and max_pos_cont_mat > max_pos_cnt:
+        
+        if cv2.contourArea(cont) > min_contour_size and max_pos_cont_mat > max_pos_cnt:
             cnt = cont_mat
             max_pos_cnt = max_pos_cont_mat
+    # print(cnt)
 
-    output[5] = max_pos_cnt / img.shape[1] * 110
-
+    min_pos_cnt = np.min(cnt[:, 0])
+    mid_pos_cnt = (min_pos_cnt + max_pos_cnt) / 2
+    output[5] = mid_pos_cnt / img.shape[1] * 110 - 20 
+    
     cnt = mat_to_contour(cnt)
+    cv2.drawContours(img, [cnt], -1, (0, 255, 0), 3)
+    
+    # '''
+    if min_pos_cnt == 0:
+        if max_pos_cnt == 0:
+            # print(cv2.contourArea(cnt) / (img.shape[0] * img.shape[1]), min_pos_cnt)
+            output[0] = "other"
+            output[5] = 30 
+            return tuple(output)
+        else:
+            output[0] = "other"
+            output[5] = max_pos_cnt / img.shape[1] * 110 + 35 
+            return tuple(output)
+    # '''
 
     img, cnt = straighten_image(img, cnt)
 
